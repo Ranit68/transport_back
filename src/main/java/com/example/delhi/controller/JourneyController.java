@@ -25,4 +25,12 @@ public class JourneyController {
         return combinedJourneyService
                 .findJourney(request);
     }
+    @RestController
+public class HealthController {
+
+    @GetMapping("/ping1")
+    public String ping() {
+        return "OK";
+    }
+}
 }
