@@ -24,12 +24,12 @@ public class RouteService {
     @Autowired
     private FareService fareService;
 
-    private static final String SUPABASE_URL
-            = "https://pxjxzbbhrnozxmkxiyht.supabase.co";
+   @Value("${supabase.url}")
+private String SUPABASE_URL;
 
-    private static final String API_KEY
-            = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4anh6YmJocm5venhta3hpeWh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDI5NTUsImV4cCI6MjA5NTc3ODk1NX0.gUX5enAnMKtvgU2HuunfoEooJFlGS9SP61_Klq0NGss";
-
+@Value("${supabase.key}")
+private String API_KEY;
+    
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 
