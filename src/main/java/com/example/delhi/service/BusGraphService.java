@@ -36,7 +36,7 @@ import tools.jackson.databind.ObjectMapper;
 public class BusGraphService {
 
     private static final int PAGE_SIZE = 1000;
-    private static final String CACHE_FILE = "bus_graph_cache.json";
+    private static final String CACHE_FILE = "/home/ubuntu/transport_back/bus_graph_cache.json";
 
     private final BusSupabaseService supabaseService;
 
