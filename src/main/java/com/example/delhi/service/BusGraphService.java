@@ -13,6 +13,8 @@ import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import com.example.delhi.dto.BusGraphCacheDto;
@@ -24,7 +26,6 @@ import com.example.delhi.entity.Edge;
 import com.example.delhi.entity.MetroGraph;
 import com.example.delhi.util.DistanceUtil;
 
-import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import tools.jackson.databind.ObjectMapper;
@@ -61,7 +62,7 @@ public class BusGraphService {
         return !graph.getAdjacentEdges(stopId).isEmpty();
     }
 
-    @PostConstruct
+    @EventListener(ApplicationReadyEvent.class)
     public void initialize() {
         graphReady = false;
         Thread t = new Thread(() -> {
