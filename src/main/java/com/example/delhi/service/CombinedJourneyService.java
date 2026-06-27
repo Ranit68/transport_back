@@ -2,6 +2,7 @@ package com.example.delhi.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 import org.springframework.stereotype.Service;
@@ -124,55 +125,54 @@ public class CombinedJourneyService {
 
         List<String> nodes = new ArrayList<>();
 
-        String search
-                = stopName.trim().toLowerCase();
+        if (stopName == null || stopName.isBlank()) {
+            return nodes;
+        }
+
+        String search = normalizeStopName(stopName);
 
         metroGraphService.getAllStops()
                 .stream()
-                .filter(s
-                        -> s.getStop_name() != null)
-                .filter(s
-                        -> s.getStop_name()
-                        .trim()
-                        .toLowerCase()
-                        .equals(search))
-                .forEach(s
-                        -> nodes.add(
-                        "METRO_" + s.getStop_id()));
+                .filter(s -> s.getStop_name() != null)
+                .filter(s -> normalizeStopName(s.getStop_name()).equals(search))
+                .forEach(s -> nodes.add("METRO_" + s.getStop_id()));
 
         busGraphService.getStopIds()
                 .stream()
                 .map(busGraphService::getStop)
                 .filter(s -> s != null)
-                .filter(s
-                        -> s.getStop_name() != null)
-                .filter(s
-                        -> s.getStop_name()
-                        .trim()
-                        .toLowerCase()
-                        .equals(search))
-                .forEach(s
-                        -> nodes.add(
-                        "BUS_" + s.getStop_id()));
+                .filter(s -> s.getStop_name() != null)
+                .filter(s -> normalizeStopName(s.getStop_name()).equals(search))
+                .filter(s -> busGraphService.hasEdges(s.getStop_id()))
+                .forEach(s -> nodes.add("BUS_" + s.getStop_id()));
+
+        if (!nodes.isEmpty()) {
+            return nodes;
+        }
+
+        metroGraphService.getAllStops()
+                .stream()
+                .filter(s -> s.getStop_name() != null)
+                .filter(s -> normalizeStopName(s.getStop_name()).contains(search))
+                .forEach(s -> nodes.add("METRO_" + s.getStop_id()));
+
         busGraphService.getStopIds()
                 .stream()
                 .map(busGraphService::getStop)
                 .filter(s -> s != null)
-                .filter(s
-                        -> s.getStop_name() != null)
-                .filter(s
-                        -> s.getStop_name()
-                        .toLowerCase()
-                        .contains("karol"))
-                .forEach(s
-                        -> System.out.println(
-                        "COMPARE => ["
-                        + s.getStop_name()
-                        + "] with ["
-                        + stopName
-                        + "]"));
+                .filter(s -> s.getStop_name() != null)
+                .filter(s -> normalizeStopName(s.getStop_name()).contains(search))
+                .filter(s -> busGraphService.hasEdges(s.getStop_id()))
+                .forEach(s -> nodes.add("BUS_" + s.getStop_id()));
 
         return nodes;
+    }
+
+    private String normalizeStopName(String value) {
+        return value
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ");
     }
 
     private CombinedJourneyResponse buildResponse(List<Edge> path) {

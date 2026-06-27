@@ -47,7 +47,7 @@ public class MetroGraphService {
 
     private final Set<String> edgeTracker
             = ConcurrentHashMap.newKeySet();
- 
+
     @PostConstruct
     public void initialize() {
         buildGraph();
@@ -66,9 +66,7 @@ public class MetroGraphService {
     }
 
     private void clearData() {
-
         graph.clear();
-
         stopMap.clear();
         routeMap.clear();
         tripMap.clear();

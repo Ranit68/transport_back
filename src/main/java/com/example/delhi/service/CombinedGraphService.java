@@ -4,16 +4,13 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
-import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
-import lombok.extern.slf4j.Slf4j;
 import com.example.delhi.dto.StopDto;
 import com.example.delhi.entity.Edge;
 import com.example.delhi.model.TransferPoint;
@@ -21,6 +18,7 @@ import com.example.delhi.util.DistanceUtil;
 
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 @Service
@@ -47,21 +45,17 @@ public class CombinedGraphService {
     public Optional<List<Edge>> findShortestPath(
             String sourceNodeId,
             String targetNodeId) {
-
         if (sourceNodeId == null || targetNodeId == null) {
             return Optional.empty();
         }
-
         if (!graph.containsKey(sourceNodeId)) {
 
             return Optional.empty();
         }
-
         if (!graph.containsKey(targetNodeId)) {
 
             return Optional.empty();
         }
-
         if (sourceNodeId.equals(targetNodeId)) {
             return Optional.of(Collections.emptyList());
         }
@@ -471,7 +465,6 @@ public class CombinedGraphService {
                     walkDistance,
                     walkMinutes
             );
-
             addEdge(metroToBus);
 
             addEdge(busToMetro);
@@ -483,7 +476,6 @@ public class CombinedGraphService {
         Thread t = new Thread(() -> {
             log.info("CombinedGraphService waiting for dependencies...");
             try {
-                // Wait for bus graph to be ready before building combined graph
                 while (!busGraphService.isGraphReady()) {
                     Thread.sleep(5000);
                 }

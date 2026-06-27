@@ -15,21 +15,26 @@ import lombok.extern.slf4j.Slf4j;
 public class TransferBuilderService {
 
     private final MetroGraphService metroGraphService;
-    private final BusSupabaseService busSupabaseService;
+    private final BusGraphService busGraphService;
 
     public TransferBuilderService(
             MetroGraphService metroGraphService,
-            BusSupabaseService busSupabaseService) {
+            BusGraphService busGraphService) {
 
         this.metroGraphService = metroGraphService;
-        this.busSupabaseService = busSupabaseService;
+        this.busGraphService = busGraphService;
     }
 
     public List<TransferPoint> buildTransfers() {
 
         List<StopDto> metroStations = new ArrayList<>(metroGraphService.getAllStops());
 
-        List<StopDto> busStops = busSupabaseService.getStations();
+        List<StopDto> busStops = busGraphService.getStopIds()
+                .stream()
+                .map(busGraphService::getStop)
+                .filter(stop -> stop != null)
+                .filter(stop -> busGraphService.hasEdges(stop.getStop_id()))
+                .toList();
 
         return buildTransfers(metroStations, busStops);
     }

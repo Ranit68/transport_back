@@ -35,7 +35,9 @@ import tools.jackson.databind.ObjectMapper;
 public class BusGraphService {
 
     private static final int PAGE_SIZE = 1000;
-    private static final String CACHE_FILE = "/home/ubuntu/transport_back/bus_graph_cache.json";
+    private static final String CACHE_FILE_PROPERTY = "bus.graph.cache.file";
+    private static final String CACHE_FILE_ENV = "BUS_GRAPH_CACHE_FILE";
+    private static final String DEFAULT_CACHE_FILE = "bus_graph_cache.json";
 
     private final BusSupabaseService supabaseService;
 
@@ -86,7 +88,7 @@ public class BusGraphService {
     }
 
     private boolean loadFromCache() {
-        File file = new File(CACHE_FILE);
+        File file = getCacheFile();
         if (!file.exists()) {
             return false;
         }
@@ -118,11 +120,22 @@ public class BusGraphService {
                     new ArrayList<>(tripMap.values()),
                     new HashMap<>(tripStopTimesMap)
             );
-            objectMapper.writeValue(new File(CACHE_FILE), cache);
+            objectMapper.writeValue(getCacheFile(), cache);
             log.info("Bus graph saved to cache");
         } catch (Exception e) {
             log.error("Failed to save bus graph to cache", e);
         }
+    }
+
+    private File getCacheFile() {
+        String configured = System.getProperty(CACHE_FILE_PROPERTY);
+        if (configured == null || configured.isBlank()) {
+            configured = System.getenv(CACHE_FILE_ENV);
+        }
+        if (configured == null || configured.isBlank()) {
+            configured = DEFAULT_CACHE_FILE;
+        }
+        return new File(configured);
     }
 
     public synchronized void buildGraph() {

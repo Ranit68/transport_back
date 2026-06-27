@@ -107,9 +107,33 @@ private String API_KEY;
     }
 
     public List<RouteDto> fetchRoutes() {
-        String url = SUPABASE_URL + "/rest/v1/bus_routes?select=route_id,route_long_name,route_short_name";
-        return fetchList(url, new TypeReference<>() {
-        });
+        List<RouteDto> allRoutes = new ArrayList<>();
+        int offset = 0;
+        int limit = 1000;
+
+        while (true) {
+            String url = SUPABASE_URL
+                    + "/rest/v1/bus_routes?select=route_id,route_long_name,route_short_name"
+                    + "&limit=" + limit
+                    + "&offset=" + offset;
+
+            List<RouteDto> batch = fetchList(url, new TypeReference<>() {
+            });
+
+            if (batch == null || batch.isEmpty()) {
+                break;
+            }
+
+            allRoutes.addAll(batch);
+
+            if (batch.size() < limit) {
+                break;
+            }
+
+            offset += limit;
+        }
+
+        return allRoutes;
     }
 
     public List<TripDto> fetchTrips(int offset, int limit) {

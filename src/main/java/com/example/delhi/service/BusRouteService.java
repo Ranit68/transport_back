@@ -62,55 +62,34 @@ private String API_KEY;
 
     private StopDto getStopByName(String stopName) throws Exception {
 
-        String normalized = stopName.trim();
-
-        String exactUrl
-                = SUPABASE_URL
-                + "/rest/v1/bus_stops"
-                + "?stop_name=eq."
-                + URLEncoder.encode(normalized, StandardCharsets.UTF_8)
-                + "&select=stop_id,stop_name";
-
-        String exactJson = getResponse(exactUrl);
-
-        List<StopDto> exactStops
-                = objectMapper.readValue(
-                        exactJson,
-                        new TypeReference<List<StopDto>>() {
-                });
-
-        for (StopDto stop : exactStops) {
-
-            if (busGraphService.hasEdges(stop.getStop_id())) {
-
-                return stop;
-            }
+        if (stopName == null || stopName.isBlank()) {
+            return null;
         }
 
-        String fuzzyUrl
-                = SUPABASE_URL
-                + "/rest/v1/bus_stops"
-                + "?stop_name=ilike.*"
-                + URLEncoder.encode(normalized, StandardCharsets.UTF_8)
-                + "*&select=stop_id,stop_name&limit=50";
+        String normalized = normalizeStopName(stopName);
 
-        String fuzzyJson = getResponse(fuzzyUrl);
+        Optional<StopDto> exactStop = busGraphService.getStopIds()
+                .stream()
+                .map(busGraphService::getStop)
+                .filter(Objects::nonNull)
+                .filter(stop -> stop.getStop_name() != null)
+                .filter(stop -> normalizeStopName(stop.getStop_name()).equals(normalized))
+                .filter(stop -> busGraphService.hasEdges(stop.getStop_id()))
+                .findFirst();
 
-        List<StopDto> fuzzyStops
-                = objectMapper.readValue(
-                        fuzzyJson,
-                        new TypeReference<List<StopDto>>() {
-                });
-
-        for (StopDto stop : fuzzyStops) {
-
-            if (busGraphService.hasEdges(stop.getStop_id())) {
-
-                return stop;
-            }
+        if (exactStop.isPresent()) {
+            return exactStop.get();
         }
 
-        return null;
+        return busGraphService.getStopIds()
+                .stream()
+                .map(busGraphService::getStop)
+                .filter(Objects::nonNull)
+                .filter(stop -> stop.getStop_name() != null)
+                .filter(stop -> normalizeStopName(stop.getStop_name()).contains(normalized))
+                .filter(stop -> busGraphService.hasEdges(stop.getStop_id()))
+                .findFirst()
+                .orElse(null);
     }
 
     public List<String> searchStations(String query) throws Exception {
@@ -138,14 +117,6 @@ private String API_KEY;
 
         StopDto source = getStopByName(from);
         StopDto destination = getStopByName(to);
-
-        log.info("Source ID={} edges={}",
-                source.getStop_id(),
-                busGraphService.edgeCount(source.getStop_id()));
-
-        log.info("Destination ID={} edges={}",
-                destination.getStop_id(),
-                busGraphService.edgeCount(destination.getStop_id()));
 
         log.info("From '{}' -> ID={}",
                 from,
@@ -223,7 +194,7 @@ private String API_KEY;
             StopDto nextStop = busGraphService.getStop(edge.getToStopId());
             String nextStopName = nextStop != null ? nextStop.getStop_name() : edge.getToStopId();
 
-            if (!Objects.equals(edge.getRouteId(), currentRouteId) || !Objects.equals(edge.getRouteName(), currentLine)) {
+            if (!Objects.equals(edge.getRouteId(), currentRouteId) || !Objects.equals(normalizeLineName(edge.getRouteName()), currentLine)) {
                 StopDto transferStop = busGraphService.getStop(edge.getFromStopId());
 
                 String transferStation = transferStop != null ? transferStop.getStop_name() : edge.getFromStopId();
@@ -324,7 +295,7 @@ private String API_KEY;
             StopDto nextStop = busGraphService.getStop(edge.getToStopId());
             String nextStopName = nextStop != null ? nextStop.getStop_name() : edge.getToStopId();
 
-            if (!Objects.equals(edge.getRouteId(), currentRouteId) || !Objects.equals(edge.getRouteName(), currentLine)) {
+            if (!Objects.equals(edge.getRouteId(), currentRouteId) || !Objects.equals(normalizeLineName(edge.getRouteName()), currentLine)) {
                 StopDto transferStop = busGraphService.getStop(edge.getFromStopId());
                 String transferStation = transferStop != null ? transferStop.getStop_name() : edge.getFromStopId();
 
@@ -387,5 +358,12 @@ private String API_KEY;
             return "Unknown Line";
         }
         return lineName.toUpperCase(Locale.ROOT);
+    }
+
+    private String normalizeStopName(String stopName) {
+        return stopName
+                .trim()
+                .toLowerCase(Locale.ROOT)
+                .replaceAll("\\s+", " ");
     }
 }
