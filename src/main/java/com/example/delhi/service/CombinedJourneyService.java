@@ -6,6 +6,7 @@ import java.util.Optional;
 
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
 import com.example.delhi.dto.CombinedJourneyResponse;
 import com.example.delhi.dto.JourneyRequest;
 import com.example.delhi.dto.JourneySegment;
@@ -13,6 +14,7 @@ import com.example.delhi.entity.Edge;
 
 import lombok.RequiredArgsConstructor;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CombinedJourneyService {
@@ -25,15 +27,22 @@ public class CombinedJourneyService {
 
     public CombinedJourneyResponse findJourney(
             JourneyRequest request) {
+        
+        log.info("Finding journey from {} to {} with strategy {}", 
+                request.getSource(), request.getDestination(), request.getStrategy());
+
         List<String> sourceNodes
                 = findAllNodeIds(request.getSource());
 
         List<String> destinationNodes
                 = findAllNodeIds(request.getDestination());
 
+        log.info("Found {} source nodes and {} destination nodes", 
+                sourceNodes.size(), destinationNodes.size());
+
         if (sourceNodes.isEmpty()
                 || destinationNodes.isEmpty()) {
-
+            log.warn("No nodes found for source or destination");
             return null;
         }
 

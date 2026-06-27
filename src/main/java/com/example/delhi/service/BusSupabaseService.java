@@ -155,7 +155,7 @@ private String API_KEY;
                 .collect(Collectors.joining(","));
         String filterValue = "in.(" + inClause + ")";
         String url = SUPABASE_URL + "/rest/v1/bus_trips?select=trip_id,route_id,service_id"
-                + "&service_id=" + filterValue;
+                + "&service_id=" + java.net.URLEncoder.encode(filterValue, java.nio.charset.StandardCharsets.UTF_8);
         return fetchList(url, new TypeReference<>() {
         });
     }
@@ -169,7 +169,7 @@ private String API_KEY;
                 .collect(Collectors.joining(","));
         String filterValue = "in.(" + inClause + ")";
         String url = SUPABASE_URL + "/rest/v1/bus_stop_times?select=trip_id,stop_id,stop_sequence,arrival_time,departure_time"
-                + "&trip_id=" + filterValue;
+                + "&trip_id=" + java.net.URLEncoder.encode(filterValue, java.nio.charset.StandardCharsets.UTF_8);
         return fetchList(url, new TypeReference<>() {
         });
     }

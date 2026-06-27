@@ -13,6 +13,7 @@ import java.util.Set;
 
 import org.springframework.stereotype.Service;
 
+import lombok.extern.slf4j.Slf4j;
 import com.example.delhi.dto.StopDto;
 import com.example.delhi.entity.Edge;
 import com.example.delhi.model.TransferPoint;
@@ -21,6 +22,7 @@ import com.example.delhi.util.DistanceUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class CombinedGraphService {
@@ -478,8 +480,24 @@ public class CombinedGraphService {
 
     @PostConstruct
     public void init() {
-
-        buildCombinedGraph();
+        Thread t = new Thread(() -> {
+            log.info("CombinedGraphService waiting for dependencies...");
+            try {
+                // Wait for bus graph to be ready before building combined graph
+                while (!busGraphService.isGraphReady()) {
+                    Thread.sleep(5000);
+                }
+                log.info("Dependencies ready. Building Combined Graph...");
+                buildCombinedGraph();
+                log.info("Combined Graph Built Successfully");
+            } catch (InterruptedException e) {
+                log.error("Combined graph builder interrupted", e);
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                log.error("Failed to build combined graph", e);
+            }
+        }, "combined-graph-builder");
+        t.setDaemon(true);
+        t.start();
     }
-
 }

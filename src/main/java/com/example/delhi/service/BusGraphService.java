@@ -216,7 +216,7 @@ public class BusGraphService {
         log.info("Loading bus_stop_times by trip batches...");
         List<String> allTripIds = new ArrayList<>(tripMap.keySet());
         int totalTrips = allTripIds.size();
-        int batchSize = 200;
+        int batchSize = 50;
         int processedTrips = 0;
         int totalStopTimes = 0;
 

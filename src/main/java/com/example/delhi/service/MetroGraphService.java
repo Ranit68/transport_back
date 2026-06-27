@@ -47,7 +47,7 @@ public class MetroGraphService {
 
     private final Set<String> edgeTracker
             = ConcurrentHashMap.newKeySet();
-
+ 
     @PostConstruct
     public void initialize() {
         buildGraph();
