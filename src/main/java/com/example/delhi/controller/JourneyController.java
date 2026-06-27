@@ -19,19 +19,11 @@ public class JourneyController {
 
     private final CombinedJourneyService combinedJourneyService;
 
-    @PostMapping
+    @PostMapping("/search")
     public CombinedJourneyResponse journey(
             @RequestBody JourneyRequest request) {
 
         return combinedJourneyService
                 .findJourney(request);
     }
-    @RestController
-public class HealthController {
-
-    @GetMapping("/ping1")
-    public String ping() {
-        return "OK";
-    }
-}
 }
