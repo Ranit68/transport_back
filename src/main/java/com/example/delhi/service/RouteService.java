@@ -246,13 +246,15 @@ public class RouteService {
         double distanceKm = estimateDistance(path);
         int fare = fareService.calculateFare(distanceKm, LocalDate.now());
 
+        int totalDuration = path.stream().mapToInt(Edge::getDurationMin).sum();
+
         return new RouteResponse(
                 routeLines,
                 routeLines,
                 "Towards " + destination.getStop_name(),
                 "Minimum Time",
                 stations,
-                path.size() * 2,
+                totalDuration,
                 fare,
                 direct,
                 Math.max(0, segments.size() - 1),
@@ -398,13 +400,15 @@ public class RouteService {
                         .toList());
         double distanceKm = estimateDistance(path);
         int fare = fareService.calculateFare(distanceKm, LocalDate.now());
+        int totalDuration = path.stream().mapToInt(Edge::getDurationMin).sum();
+
         return new RouteResponse(
                 routeLines,
                 routeLines,
                 "Towards " + destination.getStop_name(),
                 strategy,
                 stations,
-                path.size() * 2,
+                totalDuration,
                 fare,
                 direct,
                 Math.max(0, segments.size() - 1),
@@ -414,7 +418,7 @@ public class RouteService {
     }
 
     private double estimateDistance(List<Edge> path) {
-        return path.size() * 1.4;
+        return path.stream().mapToDouble(Edge::getDistanceKm).sum();
     }
 
     private double estimateDistance(int edgeCount) {

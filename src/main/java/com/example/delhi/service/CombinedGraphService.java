@@ -1,6 +1,5 @@
 package com.example.delhi.service;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -10,7 +9,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
-import java.util.Queue;
 import java.util.Set;
 
 import org.springframework.stereotype.Service;
@@ -66,58 +64,77 @@ public class CombinedGraphService {
             return Optional.of(Collections.emptyList());
         }
 
-        Queue<String> queue = new ArrayDeque<>();
+        class NodeState {
+            final String nodeId;
+            final String routeId;
+            final int totalDuration;
 
-        Map<String, Edge> previousEdge = new HashMap<>();
-
-        Set<String> visited = new HashSet<>();
-
-        queue.add(sourceNodeId);
-
-        visited.add(sourceNodeId);
-
-        boolean found = false;
-
-        while (!queue.isEmpty()) {
-
-            String current = queue.poll();
-
-            for (Edge edge : getAdjacentEdges(current)) {
-
-                String next = edge.getToStopId();
-
-                if (visited.contains(next)) {
-                    continue;
-                }
-
-                visited.add(next);
-
-                previousEdge.put(next, edge);
-
-                if (next.equals(targetNodeId)) {
-
-                    found = true;
-
-                    queue.clear();
-
-                    break;
-                }
-
-                queue.add(next);
+            NodeState(String nodeId, String routeId, int totalDuration) {
+                this.nodeId = nodeId;
+                this.routeId = routeId;
+                this.totalDuration = totalDuration;
             }
         }
 
-        if (!found) {
+        PriorityQueue<NodeState> pq = new PriorityQueue<>(
+                Comparator.comparingInt(ns -> ns.totalDuration)
+        );
+
+        Map<String, Integer> minDurations = new HashMap<>();
+        Map<String, Edge> previousEdge = new HashMap<>();
+        Map<String, String> previousStateKey = new HashMap<>();
+
+        pq.add(new NodeState(sourceNodeId, null, 0));
+        minDurations.put(sourceNodeId + "|null", 0);
+
+        NodeState bestTargetState = null;
+
+        while (!pq.isEmpty()) {
+
+            NodeState current = pq.poll();
+            String currentKey = current.nodeId + "|" + current.routeId;
+
+            if (current.totalDuration > minDurations.getOrDefault(currentKey, Integer.MAX_VALUE)) {
+                continue;
+            }
+
+            if (current.nodeId.equals(targetNodeId)) {
+                if (bestTargetState == null || current.totalDuration < bestTargetState.totalDuration) {
+                    bestTargetState = current;
+                }
+                continue;
+            }
+
+            for (Edge edge : getAdjacentEdges(current.nodeId)) {
+
+                String nextNodeId = edge.getToStopId();
+                String nextRouteId = edge.getRouteId();
+                
+                int transferPenalty = (current.routeId != null && !current.routeId.equals(nextRouteId)) ? 10 : 0;
+                int newDuration = current.totalDuration + edge.getDurationMin() + transferPenalty;
+
+                String nextKey = nextNodeId + "|" + nextRouteId;
+                if (newDuration < minDurations.getOrDefault(nextKey, Integer.MAX_VALUE)) {
+                    minDurations.put(nextKey, newDuration);
+                    previousEdge.put(nextKey, edge);
+                    previousStateKey.put(nextKey, currentKey);
+                    pq.add(new NodeState(nextNodeId, nextRouteId, newDuration));
+                }
+            }
+        }
+
+        if (bestTargetState == null) {
             return Optional.empty();
         }
 
         List<Edge> path = new ArrayList<>();
 
-        String current = targetNodeId;
+        String currentKey = bestTargetState.nodeId + "|" + bestTargetState.routeId;
+        String startKey = sourceNodeId + "|null";
 
-        while (!current.equals(sourceNodeId)) {
+        while (!currentKey.equals(startKey)) {
 
-            Edge edge = previousEdge.get(current);
+            Edge edge = previousEdge.get(currentKey);
 
             if (edge == null) {
                 break;
@@ -125,7 +142,8 @@ public class CombinedGraphService {
 
             path.add(edge);
 
-            current = edge.getFromStopId();
+            currentKey = previousStateKey.get(currentKey);
+            if (currentKey == null) break;
         }
 
         Collections.reverse(path);
@@ -159,17 +177,17 @@ public class CombinedGraphService {
 
             final int interchangeCount;
 
-            final int steps;
+            final int totalDuration;
 
             State(String stopId,
                     String routeId,
                     int interchangeCount,
-                    int steps) {
+                    int totalDuration) {
 
                 this.stopId = stopId;
                 this.routeId = routeId;
                 this.interchangeCount = interchangeCount;
-                this.steps = steps;
+                this.totalDuration = totalDuration;
             }
         }
 
@@ -186,7 +204,7 @@ public class CombinedGraphService {
                                         (State s)
                                         -> s.interchangeCount)
                                 .thenComparingInt(
-                                        s -> s.steps));
+                                        s -> s.totalDuration));
 
         Map<StateKey, State> bestState
                 = new HashMap<>();
@@ -232,8 +250,8 @@ public class CombinedGraphService {
             if (known == null
                     || known.interchangeCount
                     != state.interchangeCount
-                    || known.steps
-                    != state.steps) {
+                    || known.totalDuration
+                    != state.totalDuration) {
 
                 continue;
             }
@@ -262,8 +280,8 @@ public class CombinedGraphService {
                         ? state.interchangeCount
                         : state.interchangeCount + 1;
 
-                int nextSteps
-                        = state.steps + 1;
+                int nextDuration
+                        = state.totalDuration + edge.getDurationMin();
 
                 StateKey nextKey
                         = new StateKey(
@@ -275,7 +293,7 @@ public class CombinedGraphService {
                                 nextStop,
                                 nextRoute,
                                 nextInterchange,
-                                nextSteps);
+                                nextDuration);
 
                 State existing
                         = bestState.get(nextKey);
@@ -285,8 +303,8 @@ public class CombinedGraphService {
                         < existing.interchangeCount
                         || (candidate.interchangeCount
                         == existing.interchangeCount
-                        && candidate.steps
-                        < existing.steps)) {
+                        && candidate.totalDuration
+                        < existing.totalDuration)) {
 
                     bestState.put(
                             nextKey,
@@ -371,8 +389,8 @@ public class CombinedGraphService {
                         edge.getRouteId(),
                         edge.getRouteName(),
                         edge.getTripId(),
-                        1.4,
-                        2
+                        edge.getDistanceKm(),
+                        edge.getDurationMin()
                 ));
             }
         }
@@ -393,8 +411,8 @@ public class CombinedGraphService {
                         edge.getRouteId(),
                         edge.getRouteName(),
                         edge.getTripId(),
-                        1.8,
-                        3
+                        edge.getDistanceKm(),
+                        edge.getDurationMin()
                 ));
             }
         }

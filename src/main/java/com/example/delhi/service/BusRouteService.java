@@ -247,8 +247,10 @@ public class BusRouteService {
         boolean direct = segments.size() == 1;
         String routeLines = String.join(" → ", segments.stream().map(RouteSegment::getLine).distinct().toList());
 
-        double distanceKm = estimateDistance(path.size());
+        double distanceKm = estimateDistance(path);
         int fare = fareService.calculateFare(distanceKm, LocalDate.now());
+
+        int totalDuration = path.stream().mapToInt(Edge::getDurationMin).sum();
 
         return new RouteResponse(
                 routeLines,
@@ -256,7 +258,7 @@ public class BusRouteService {
                 "Towards " + destination.getStop_name(),
                 "Minimum Time",
                 stations,
-                path.size() * 2,
+                totalDuration,
                 fare,
                 direct,
                 Math.max(0, segments.size() - 1),
@@ -345,8 +347,10 @@ public class BusRouteService {
         boolean direct = segments.size() == 1;
         String routeLines = String.join(" → ", segments.stream().map(RouteSegment::getLine).distinct().toList());
 
-        double distanceKm = estimateDistance(path.size());
+        double distanceKm = estimateDistance(path);
         int fare = fareService.calculateFare(distanceKm, LocalDate.now());
+
+        int totalDuration = path.stream().mapToInt(Edge::getDurationMin).sum();
 
         return new RouteResponse(
                 routeLines,
@@ -354,7 +358,7 @@ public class BusRouteService {
                 "Towards " + destination.getStop_name(),
                 strategy,
                 stations,
-                path.size() * 2,
+                totalDuration,
                 fare,
                 direct,
                 Math.max(0, segments.size() - 1),
@@ -372,8 +376,8 @@ public class BusRouteService {
                 && Objects.equals(first.getLine(), second.getLine());
     }
 
-    private double estimateDistance(int edgeCount) {
-        return edgeCount * 1.8;
+    private double estimateDistance(List<Edge> path) {
+        return path.stream().mapToDouble(Edge::getDistanceKm).sum();
     }
 
     private String normalizeLineName(String lineName) {

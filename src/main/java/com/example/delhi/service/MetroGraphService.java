@@ -1,6 +1,5 @@
 package com.example.delhi.service;
 
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -11,7 +10,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.PriorityQueue;
-import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -323,45 +321,76 @@ public class MetroGraphService {
             return Optional.of(Collections.emptyList());
         }
 
-        Queue<String> queue = new ArrayDeque<>();
-        Map<String, Edge> previousEdge = new HashMap<>();
-        Set<String> visited = new HashSet<>();
+        class NodeState {
+            final String stopId;
+            final String routeId;
+            final int totalDuration;
 
-        queue.add(sourceStopId);
-        visited.add(sourceStopId);
-
-        boolean found = false;
-        while (!queue.isEmpty()) {
-            String current = queue.poll();
-            for (Edge edge : graph.getAdjacentEdges(current)) {
-                String next = edge.getToStopId();
-                if (visited.contains(next)) {
-                    continue;
-                }
-                visited.add(next);
-                previousEdge.put(next, edge);
-                if (next.equals(targetStopId)) {
-                    found = true;
-                    queue.clear();
-                    break;
-                }
-                queue.add(next);
+            NodeState(String stopId, String routeId, int totalDuration) {
+                this.stopId = stopId;
+                this.routeId = routeId;
+                this.totalDuration = totalDuration;
             }
         }
 
-        if (!found) {
+        PriorityQueue<NodeState> pq = new PriorityQueue<>(
+                Comparator.comparingInt(ns -> ns.totalDuration)
+        );
+
+        Map<String, Integer> minDurations = new HashMap<>();
+        Map<String, Edge> previousEdge = new HashMap<>();
+        Map<String, String> previousStateKey = new HashMap<>();
+
+        pq.add(new NodeState(sourceStopId, null, 0));
+        minDurations.put(sourceStopId + "|null", 0);
+
+        NodeState bestTargetState = null;
+
+        while (!pq.isEmpty()) {
+            NodeState current = pq.poll();
+            String currentKey = current.stopId + "|" + current.routeId;
+
+            if (current.totalDuration > minDurations.getOrDefault(currentKey, Integer.MAX_VALUE)) {
+                continue;
+            }
+
+            if (current.stopId.equals(targetStopId)) {
+                if (bestTargetState == null || current.totalDuration < bestTargetState.totalDuration) {
+                    bestTargetState = current;
+                }
+                continue;
+            }
+
+            for (Edge edge : graph.getAdjacentEdges(current.stopId)) {
+                String nextStopId = edge.getToStopId();
+                String nextRouteId = edge.getRouteId();
+                
+                int transferPenalty = (current.routeId != null && !current.routeId.equals(nextRouteId)) ? 5 : 0;
+                int newDuration = current.totalDuration + edge.getDurationMin() + transferPenalty;
+
+                String nextKey = nextStopId + "|" + nextRouteId;
+                if (newDuration < minDurations.getOrDefault(nextKey, Integer.MAX_VALUE)) {
+                    minDurations.put(nextKey, newDuration);
+                    previousEdge.put(nextKey, edge);
+                    previousStateKey.put(nextKey, currentKey);
+                    pq.add(new NodeState(nextStopId, nextRouteId, newDuration));
+                }
+            }
+        }
+
+        if (bestTargetState == null) {
             return Optional.empty();
         }
 
         List<Edge> path = new ArrayList<>();
-        String current = targetStopId;
-        while (!current.equals(sourceStopId)) {
-            Edge edge = previousEdge.get(current);
-            if (edge == null) {
-                break;
-            }
+        String currentKey = bestTargetState.stopId + "|" + bestTargetState.routeId;
+        String startKey = sourceStopId + "|null";
+
+        while (!currentKey.equals(startKey)) {
+            Edge edge = previousEdge.get(currentKey);
+            if (edge == null) break;
             path.add(edge);
-            current = edge.getFromStopId();
+            currentKey = previousStateKey.get(currentKey);
         }
         Collections.reverse(path);
 
@@ -389,13 +418,13 @@ public class MetroGraphService {
             final String stopId;
             final String routeId;
             final int interchangeCount;
-            final int steps;
+            final int totalDuration;
 
-            State(String stopId, String routeId, int interchangeCount, int steps) {
+            State(String stopId, String routeId, int interchangeCount, int totalDuration) {
                 this.stopId = stopId;
                 this.routeId = routeId;
                 this.interchangeCount = interchangeCount;
-                this.steps = steps;
+                this.totalDuration = totalDuration;
             }
         }
 
@@ -405,7 +434,7 @@ public class MetroGraphService {
 
         PriorityQueue<State> queue = new PriorityQueue<>(Comparator
                 .comparingInt((State s) -> s.interchangeCount)
-                .thenComparingInt(s -> s.steps));
+                .thenComparingInt(s -> s.totalDuration));
 
         Map<StateKey, State> bestState = new HashMap<>();
         Map<StateKey, Edge> previousEdge = new HashMap<>();
@@ -423,7 +452,7 @@ public class MetroGraphService {
             State state = queue.poll();
             StateKey currentKey = new StateKey(state.stopId, state.routeId);
             State known = bestState.get(currentKey);
-            if (known == null || known.interchangeCount != state.interchangeCount || known.steps != state.steps) {
+            if (known == null || known.interchangeCount != state.interchangeCount || known.totalDuration != state.totalDuration) {
                 continue;
             }
 
@@ -439,14 +468,14 @@ public class MetroGraphService {
                 int nextInterchange = state.routeId == null || state.routeId.equals(nextRoute)
                         ? state.interchangeCount
                         : state.interchangeCount + 1;
-                int nextSteps = state.steps + 1;
+                int nextDuration = state.totalDuration + edge.getDurationMin();
 
                 StateKey nextKey = new StateKey(nextStop, nextRoute);
-                State candidate = new State(nextStop, nextRoute, nextInterchange, nextSteps);
+                State candidate = new State(nextStop, nextRoute, nextInterchange, nextDuration);
 
                 State existing = bestState.get(nextKey);
                 if (existing == null || candidate.interchangeCount < existing.interchangeCount
-                        || (candidate.interchangeCount == existing.interchangeCount && candidate.steps < existing.steps)) {
+                        || (candidate.interchangeCount == existing.interchangeCount && candidate.totalDuration < existing.totalDuration)) {
                     bestState.put(nextKey, candidate);
                     previousEdge.put(nextKey, edge);
                     previousState.put(nextKey, currentKey);

@@ -1,7 +1,6 @@
 package com.example.delhi.service;
 
 import java.io.File;
-import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
@@ -10,7 +9,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.Queue;
+import java.util.PriorityQueue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,7 +35,7 @@ import tools.jackson.databind.ObjectMapper;
 public class BusGraphService {
 
     private static final int PAGE_SIZE = 1000;
-    private static final String CACHE_FILE = "bus_graph_cache.json";
+    private static final String CACHE_FILE = "/home/ubuntu/transport_back/bus_graph_cache.json";
 
     private final BusSupabaseService supabaseService;
 
@@ -217,7 +216,7 @@ public class BusGraphService {
         log.info("Loading bus_stop_times by trip batches...");
         List<String> allTripIds = new ArrayList<>(tripMap.keySet());
         int totalTrips = allTripIds.size();
-        int batchSize = 20;
+        int batchSize = 200;
         int processedTrips = 0;
         int totalStopTimes = 0;
 
@@ -241,9 +240,18 @@ public class BusGraphService {
                 }
             } catch (Exception e) {
 
-                throw new RuntimeException(
-                        "Could not load stop_times batch " + i,
-                        e);
+                log.error(
+        "Failed batch {}. Retrying...",
+        i,
+        e
+    ); 
+    try {
+        Thread.sleep(5000);
+    } catch (InterruptedException ignored) {
+    }
+
+    i -= batchSize;
+
             }
         }
 
@@ -304,6 +312,24 @@ public class BusGraphService {
             return;
         }
 
+        StopDto from = stopMap.get(fromStopId);
+        StopDto to = stopMap.get(toStopId);
+
+        if (from == null || to == null) {
+            return;
+        }
+
+        double distanceKm
+                = DistanceUtil.calculateDistanceKm(
+                        from.getStop_lat(),
+                        from.getStop_lon(),
+                        to.getStop_lat(),
+                        to.getStop_lon());
+
+        int durationMin
+                = (int) Math.ceil(
+                        distanceKm / 20.0 * 60);
+
         RouteDto route = routeMap.get(trip.getRoute_id());
 
         String routeName = trip.getRoute_id();
@@ -337,7 +363,9 @@ public class BusGraphService {
                     toStopId,
                     trip.getRoute_id(),
                     routeName,
-                    trip.getTrip_id()
+                    trip.getTrip_id(),
+                    distanceKm,
+                    durationMin
             ));
         }
 
@@ -348,20 +376,6 @@ public class BusGraphService {
                 = toStopId + "|"
                 + fromStopId + "|"
                 + trip.getTrip_id();
-
-        StopDto from = stopMap.get(fromStopId);
-        StopDto to = stopMap.get(toStopId);
-
-        double distanceKm
-                = DistanceUtil.calculateDistanceKm(
-                        from.getStop_lat(),
-                        from.getStop_lon(),
-                        to.getStop_lat(),
-                        to.getStop_lon());
-
-        int durationMin
-                = (int) Math.ceil(
-                        distanceKm / 20.0 * 60);
 
         if (edgeTracker.add(reverseKey)) {
 
@@ -388,45 +402,79 @@ public class BusGraphService {
             return Optional.of(Collections.emptyList());
         }
 
-        Queue<String> queue = new ArrayDeque<>();
-        Map<String, Edge> previousEdge = new HashMap<>();
-        Set<String> visited = new HashSet<>();
+        class NodeState {
+            final String stopId;
+            final String routeId;
+            final int totalDuration;
 
-        queue.add(sourceStopId);
-        visited.add(sourceStopId);
-
-        boolean found = false;
-        while (!queue.isEmpty()) {
-            String current = queue.poll();
-            for (Edge edge : graph.getAdjacentEdges(current)) {
-                String next = edge.getToStopId();
-                if (visited.contains(next)) {
-                    continue;
-                }
-                visited.add(next);
-                previousEdge.put(next, edge);
-                if (next.equals(targetStopId)) {
-                    found = true;
-                    queue.clear();
-                    break;
-                }
-                queue.add(next);
+            NodeState(String stopId, String routeId, int totalDuration) {
+                this.stopId = stopId;
+                this.routeId = routeId;
+                this.totalDuration = totalDuration;
             }
         }
 
-        if (!found) {
+        PriorityQueue<NodeState> pq = new PriorityQueue<>(
+                Comparator.comparingInt(ns -> ns.totalDuration)
+        );
+
+        // Key is "stopId|routeId" to allow reaching the same stop via different routes
+        Map<String, Integer> minDurations = new HashMap<>();
+        Map<String, Edge> previousEdge = new HashMap<>();
+        Map<String, String> previousStateKey = new HashMap<>();
+
+        pq.add(new NodeState(sourceStopId, null, 0));
+        minDurations.put(sourceStopId + "|null", 0);
+
+        NodeState bestTargetState = null;
+
+        while (!pq.isEmpty()) {
+            NodeState current = pq.poll();
+            String currentKey = current.stopId + "|" + current.routeId;
+
+            if (current.totalDuration > minDurations.getOrDefault(currentKey, Integer.MAX_VALUE)) {
+                continue;
+            }
+
+            if (current.stopId.equals(targetStopId)) {
+                if (bestTargetState == null || current.totalDuration < bestTargetState.totalDuration) {
+                    bestTargetState = current;
+                }
+                // Continue to find potentially better routes to the target
+                continue;
+            }
+
+            for (Edge edge : graph.getAdjacentEdges(current.stopId)) {
+                String nextStopId = edge.getToStopId();
+                String nextRouteId = edge.getRouteId();
+                
+                // Penalty for changing routes (e.g., 5 minutes)
+                int transferPenalty = (current.routeId != null && !current.routeId.equals(nextRouteId)) ? 5 : 0;
+                int newDuration = current.totalDuration + edge.getDurationMin() + transferPenalty;
+
+                String nextKey = nextStopId + "|" + nextRouteId;
+                if (newDuration < minDurations.getOrDefault(nextKey, Integer.MAX_VALUE)) {
+                    minDurations.put(nextKey, newDuration);
+                    previousEdge.put(nextKey, edge);
+                    previousStateKey.put(nextKey, currentKey);
+                    pq.add(new NodeState(nextStopId, nextRouteId, newDuration));
+                }
+            }
+        }
+
+        if (bestTargetState == null) {
             return Optional.empty();
         }
 
         List<Edge> path = new ArrayList<>();
-        String current = targetStopId;
-        while (!current.equals(sourceStopId)) {
-            Edge edge = previousEdge.get(current);
-            if (edge == null) {
-                break;
-            }
+        String currentKey = bestTargetState.stopId + "|" + bestTargetState.routeId;
+        String startKey = sourceStopId + "|null";
+
+        while (!currentKey.equals(startKey)) {
+            Edge edge = previousEdge.get(currentKey);
+            if (edge == null) break;
             path.add(edge);
-            current = edge.getFromStopId();
+            currentKey = previousStateKey.get(currentKey);
         }
         Collections.reverse(path);
         return Optional.of(path);
@@ -448,13 +496,13 @@ public class BusGraphService {
             final String stopId;
             final String routeId;
             final int interchangeCount;
-            final int steps;
+            final int totalDuration;
 
-            State(String stopId, String routeId, int interchangeCount, int steps) {
+            State(String stopId, String routeId, int interchangeCount, int totalDuration) {
                 this.stopId = stopId;
                 this.routeId = routeId;
                 this.interchangeCount = interchangeCount;
-                this.steps = steps;
+                this.totalDuration = totalDuration;
             }
         }
 
@@ -463,7 +511,7 @@ public class BusGraphService {
         }
 
         java.util.PriorityQueue<State> queue = new java.util.PriorityQueue<>(
-                java.util.Comparator.comparingInt((State s) -> s.interchangeCount).thenComparingInt(s -> s.steps)
+                java.util.Comparator.comparingInt((State s) -> s.interchangeCount).thenComparingInt(s -> s.totalDuration)
         );
 
         Map<StateKey, State> bestState = new HashMap<>();
@@ -482,7 +530,7 @@ public class BusGraphService {
             State state = queue.poll();
             StateKey currentKey = new StateKey(state.stopId, state.routeId);
             State known = bestState.get(currentKey);
-            if (known == null || known.interchangeCount != state.interchangeCount || known.steps != state.steps) {
+            if (known == null || known.interchangeCount != state.interchangeCount || known.totalDuration != state.totalDuration) {
                 continue;
             }
 
@@ -496,13 +544,13 @@ public class BusGraphService {
                 String nextStop = edge.getToStopId();
                 String nextRoute = edge.getRouteId();
                 int nextInterchange = state.routeId == null || state.routeId.equals(nextRoute) ? state.interchangeCount : state.interchangeCount + 1;
-                int nextSteps = state.steps + 1;
+                int nextDuration = state.totalDuration + edge.getDurationMin();
 
                 StateKey nextKey = new StateKey(nextStop, nextRoute);
-                State candidate = new State(nextStop, nextRoute, nextInterchange, nextSteps);
+                State candidate = new State(nextStop, nextRoute, nextInterchange, nextDuration);
 
                 State existing = bestState.get(nextKey);
-                if (existing == null || candidate.interchangeCount < existing.interchangeCount || (candidate.interchangeCount == existing.interchangeCount && candidate.steps < existing.steps)) {
+                if (existing == null || candidate.interchangeCount < existing.interchangeCount || (candidate.interchangeCount == existing.interchangeCount && candidate.totalDuration < existing.totalDuration)) {
                     bestState.put(nextKey, candidate);
                     previousEdge.put(nextKey, edge);
                     previousState.put(nextKey, currentKey);

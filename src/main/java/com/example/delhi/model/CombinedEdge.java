@@ -25,12 +25,9 @@ public class CombinedEdge {
         this.line = line;
         this.timeMinutes = timeMinutes;
     }
-
-
     public String getFrom() {
         return from;
     }
-
     public void setFrom(String from) {
         this.from = from;
     }
