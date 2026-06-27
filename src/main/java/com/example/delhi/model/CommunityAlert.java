@@ -15,6 +15,8 @@ public class CommunityAlert {
 
     private String message;
 
+    private String category;
+
     private long createdAt;
     private int trueVotes;
     private int falseVotes;

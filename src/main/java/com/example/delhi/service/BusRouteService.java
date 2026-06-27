@@ -10,6 +10,7 @@ import java.util.Locale;
 import java.util.Objects;
 import java.util.Optional;
 import org.slf4j.Logger;
+import org.springframework.beans.factory.annotation.Value;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -33,10 +34,11 @@ public class BusRouteService {
     private final BusGraphService busGraphService;
     private final FareService fareService;
 
-    private static final String SUPABASE_URL = "https://pxjxzbbhrnozxmkxiyht.supabase.co";
-    private static final String API_KEY
-            = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4anh6YmJocm5venhta3hpeWh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDI5NTUsImV4cCI6MjA5NTc3ODk1NX0.gUX5enAnMKtvgU2HuunfoEooJFlGS9SP61_Klq0NGss";
+  @Value("${supabase.url}")
+private String SUPABASE_URL;
 
+@Value("${supabase.key}")
+private String API_KEY;
     private final RestTemplate restTemplate = new RestTemplate();
     private final ObjectMapper objectMapper = new ObjectMapper();
 

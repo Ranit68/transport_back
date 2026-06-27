@@ -67,6 +67,15 @@ public class BusRouteController {
 
     }
 
+    @RestController
+public class HealthController {
+
+    @GetMapping("/ping")
+    public String ping() {
+        return "OK";
+    }
+}
+
     @GetMapping("/route/options")
     public List<RouteResponse> getRouteOptions(
             @RequestParam String from,

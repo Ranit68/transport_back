@@ -8,4 +8,6 @@ public class AlertRequest {
     private String userId;
 
     private String message;
+
+    private String category;
 }

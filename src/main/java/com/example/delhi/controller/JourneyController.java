@@ -1,5 +1,6 @@
 package com.example.delhi.controller;
 
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -25,4 +26,12 @@ public class JourneyController {
         return combinedJourneyService
                 .findJourney(request);
     }
+    @RestController
+public class HealthController {
+
+    @GetMapping("/ping1")
+    public String ping() {
+        return "OK";
+    }
+}
 }

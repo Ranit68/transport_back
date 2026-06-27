@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.Collections;
 import java.util.List;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.annotation.Value;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpEntity;
@@ -30,12 +31,12 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class SupabaseService {
 
-    private static final String SUPABASE_URL
-            = "https://pxjxzbbhrnozxmkxiyht.supabase.co";
+    @Value("${supabase.url}")
+private String SUPABASE_URL;
 
-    private static final String API_KEY
-            = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4anh6YmJocm5venhta3hpeWh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDI5NTUsImV4cCI6MjA5NTc3ODk1NX0.gUX5enAnMKtvgU2HuunfoEooJFlGS9SP61_Klq0NGss";
-
+@Value("${supabase.key}")
+private String API_KEY;
+    
     @Autowired
     private RestTemplate restTemplate;
 

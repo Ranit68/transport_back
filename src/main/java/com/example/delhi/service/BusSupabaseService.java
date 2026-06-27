@@ -19,6 +19,7 @@ import org.springframework.web.client.RestTemplate;
 import com.example.delhi.dto.CalendarDateDto;
 import com.example.delhi.dto.CalendarDto;
 import com.example.delhi.dto.RouteDto;
+import org.springframework.beans.factory.annotation.Value;
 import com.example.delhi.dto.StopDto;
 import com.example.delhi.dto.StopTimeDto;
 import com.example.delhi.dto.TripDto;
@@ -29,12 +30,12 @@ import tools.jackson.databind.ObjectMapper;
 @Service
 public class BusSupabaseService {
 
-    private static final String SUPABASE_URL
-            = "https://pxjxzbbhrnozxmkxiyht.supabase.co";
+   @Value("${supabase.url}")
+private String SUPABASE_URL;
 
-    private static final String API_KEY
-            = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB4anh6YmJocm5venhta3hpeWh0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODAyMDI5NTUsImV4cCI6MjA5NTc3ODk1NX0.gUX5enAnMKtvgU2HuunfoEooJFlGS9SP61_Klq0NGss";
-
+@Value("${supabase.key}")
+private String API_KEY;
+    
     @Autowired
     private RestTemplate restTemplate;
 

@@ -55,10 +55,6 @@ public class MetroGraphService {
 
     public synchronized void buildGraph() {
 
-        log.info("======================================");
-        log.info("Building Delhi Metro Graph...");
-        log.info("======================================");
-
         clearData();
 
         loadStops();
@@ -67,15 +63,6 @@ public class MetroGraphService {
         loadStopTimes();
 
         createEdges();
-
-        log.info("======================================");
-        log.info("Metro Graph Built Successfully");
-        log.info("Stops Loaded : {}", stopMap.size());
-        log.info("Routes Loaded: {}", routeMap.size());
-        log.info("Trips Loaded : {}", tripMap.size());
-        log.info("Graph Nodes  : {}", graph.getNodes().size());
-        log.info("Graph Edges  : {}", graph.getTotalEdges());
-        log.info("======================================");
     }
 
     private void clearData() {

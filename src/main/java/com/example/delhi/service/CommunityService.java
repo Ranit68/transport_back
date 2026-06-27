@@ -24,8 +24,28 @@ public class CommunityService {
     private final RedisTemplate<String, Object> redisTemplate;
     private final TextModerationService textModerationService;
 
-    private static final String ALERT_LIST_KEY
-            = "community:alerts";
+    private static final String ALERT_LIST_KEY_PREFIX
+            = "community:alerts:";
+
+    private static final String ALL_ALERTS_KEY = "community:alerts:all";
+
+    private static final String DEFAULT_CATEGORY = "General";
+
+    public List<String> getCategories() {
+        return List.of(
+                "Metro: Red Line",
+                "Metro: Blue Line",
+                "Metro: Yellow Line",
+                "Metro: Green Line",
+                "Metro: Pink Line",
+                "Metro: Magenta Line",
+                "Metro: Violet Line",
+                "Metro: Orange Line",
+                "Metro: Gray Line",
+                "Bus",
+                "General"
+        );
+    }
 
     public AlertResponse postAlert(
             AlertRequest request) {
@@ -47,11 +67,14 @@ public class CommunityService {
                     result.getReason());
         }
 
+        String category = request.getCategory() != null ? request.getCategory() : DEFAULT_CATEGORY;
+
         CommunityAlert alert
                 = new CommunityAlert(
                         UUID.randomUUID().toString(),
                         request.getUserId(),
                         request.getMessage().trim(),
+                        category,
                         System.currentTimeMillis(),
                         0,
                         0,
@@ -64,17 +87,23 @@ public class CommunityService {
         redisTemplate.opsForValue().set(
                 key,
                 alert,
-                Duration.ofHours(1)
+                Duration.ofHours(24)
         );
 
         redisTemplate.opsForList().leftPush(
-                ALERT_LIST_KEY,
+                ALERT_LIST_KEY_PREFIX + category,
+                alert.getId()
+        );
+
+        redisTemplate.opsForList().leftPush(
+                ALL_ALERTS_KEY,
                 alert.getId()
         );
 
         return new AlertResponse(
                 alert.getId(),
                 alert.getMessage(),
+                alert.getCategory(),
                 alert.getCreatedAt(),
                 alert.getTrueVotes(),
                 alert.getFalseVotes(),
@@ -82,15 +111,19 @@ public class CommunityService {
         );
     }
 
-    public List<AlertResponse> getAlerts() {
+    public List<AlertResponse> getAlerts(String category) {
 
         List<AlertResponse> response
                 = new ArrayList<>();
 
+        String listKey = (category == null || category.trim().isEmpty() || "All".equalsIgnoreCase(category))
+                ? ALL_ALERTS_KEY
+                : ALERT_LIST_KEY_PREFIX + category;
+
         List<Object> ids
                 = redisTemplate.opsForList()
                         .range(
-                                ALERT_LIST_KEY,
+                                listKey,
                                 0,
                                 -1
                         );
@@ -116,6 +149,7 @@ public class CommunityService {
                     new AlertResponse(
                             alert.getId(),
                             alert.getMessage(),
+                            alert.getCategory(),
                             alert.getCreatedAt(),
                             alert.getTrueVotes(),
                             alert.getFalseVotes(),

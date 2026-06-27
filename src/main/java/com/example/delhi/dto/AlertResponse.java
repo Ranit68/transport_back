@@ -8,6 +8,7 @@ import lombok.Data;
 public class AlertResponse {
     private String id;
     private String message;
+    private String category;
     private long createdAt;
     private int trueVotes;
     private int falseVotes;

@@ -55,9 +55,15 @@ public class CommunityController {
         return "Report Added";
     }
 
-    @GetMapping("/alerts")
-    public List<AlertResponse> getAlerts() {
+    @GetMapping("/categories")
+    public List<String> getCategories() {
+        return communityService.getCategories();
+    }
 
-        return communityService.getAlerts();
+    @GetMapping("/alerts")
+    public List<AlertResponse> getAlerts(
+            @org.springframework.web.bind.annotation.RequestParam(required = false) String category) {
+
+        return communityService.getAlerts(category);
     }
 }
