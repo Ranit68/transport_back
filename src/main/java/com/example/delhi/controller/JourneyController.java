@@ -19,10 +19,7 @@ public class JourneyController {
     private final CombinedJourneyService combinedJourneyService;
 
     @PostMapping("/search")
-    public CombinedJourneyResponse journey(
-            @RequestBody JourneyRequest request) {
-
-        return combinedJourneyService
-                .findJourney(request);
+    public CombinedJourneyResponse journey(@RequestBody JourneyRequest request) {
+        return combinedJourneyService.findJourney(request);
     }
 }
